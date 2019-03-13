@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Snake Game</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+	<style type="text/css">
+		canvas {
+			border: 2px solid #000;
+			position: absolute;
+			margin-left: 100px;
+			margin-top: 10%;
+			font: 12px Helvetica;
+		}
+		#score {
+			position: absolute;
+			left:800px;
+			top: 300px;
+			font-size: 3em;
+		}
+	</style>
+</head>
+<body>
+	<canvas></canvas>
+	<div id="score">
+		SCORE : [[ score ]]<br><br>
+		<div class="btn-group btn-group-lg" role="group" aria-label="Basic example">
+  			<button @click="restart(100)" type="button" class="btn btn-secondary">SLOW</button>
+			<button @click="restart(80)" type="button" class="btn btn-secondary">MEDIUM</button>
+			<button @click="restart(60)" type="button" class="btn btn-secondary">FAST</button>
+		</div>
+	</div>
+	<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+	<script type="text/javascript">
+		var 
+		KEY_LEFT  = 37,
+		KEY_UP    = 38,
+		KEY_RIGHT = 39,
+		KEY_DOWN  = 40,
+		POSSIBLE_KEYS = [KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_UP],
+		EMPTY = 0,
+		SNAKE = 1,
+		FOOD = 2,
+		SPEED = 100;
+		GAME_OVER = false;
+
+		var snake = {
+			direction: null,
+			positions: null,
+
+			methods: {
+
+				init: function() {
+					snake.direction = KEY_DOWN;
+
+					snake.positions= [{
+						x: 25,
+						y: 0
+					}];
+				},
+
+				remove_tail: function() {
+					tail = snake.positions.pop();
+					canvas.grid[tail.x][tail.y] = EMPTY;
+				},
+
+				insert_new_head: function(x, y) {
+					canvas.grid[x][y] = SNAKE;
+					snake.positions.unshift({
+						x: x,
+						y: y
+					})
+				}
+
+			}
+
+		}
+
+		var canvas = new Vue({
+			el: 'canvas',
+
+			data: {
+				grid: null,
+				COLS: 26,
+				ROWS: 26,
+			},
+
+			methods: {
+				
+				getContext: function() {
+					temp = document.getElementsByTagName("canvas")[0];
+					temp.width = this.COLS * 20;
+					temp.height = this.ROWS * 20;
+					return temp.getContext("2d");
+				},
+
+				init: function() {
+					this.grid = [];
+					for (var x = 0; x < this.ROWS; x++) {
+						this.grid.push([]);
+						for (var y = 0; y < this.COLS; y++) {
+							this.grid[x].push(EMPTY);
+						}
+					}
+					canvas.grid[25][0] = SNAKE;
+				},
+
+				draw: function() {
+					for (var x = 0; x < 26; x++) {
+						for (var y = 0; y < 26; y++) {
+							this.color(x, y);
+						}
+					}
+				},
+
+				border: function() {
+				},
+
+				color: function(x, y) {
+					switch (canvas.grid[x][y]) {
+						case EMPTY:
+								ctx.fillStyle = "#fff";
+								break;
+						case SNAKE:
+								ctx.fillStyle = "#31bbfc";
+								break;
+						case FOOD:
+								ctx.fillStyle='#000';
+								break;
+					}
+					ctx.fillRect(x*20, y*20, 20, 20);
+				},
+
+				setFood: function() {
+					done = false;
+					while (!done) {
+						row = Math.floor(Math.random() * this.ROWS);
+						col = Math.floor(Math.random() * this.COLS);
+						if (this.grid[row][col] == EMPTY) {
+							this.grid[row][col] = FOOD;
+							done = true;
+						}
+					}
+				},
+
+				update: function() {
+					var headx = snake.positions[0].x;
+					var heady = snake.positions[0].y;
+
+					switch (snake.direction) {
+						case KEY_LEFT:
+							headx--;
+							break;
+						case KEY_UP:
+							heady--;
+							break;
+						case KEY_RIGHT:
+							headx++;
+							break;
+						case KEY_DOWN:
+							heady++;
+							break;
+					}
+					if (0 > headx || headx > canvas.COLS-1  || 0 > heady || heady > canvas.ROWS-1 || canvas.grid[headx][heady] === SNAKE) {
+						GAME_OVER = true;
+						return;
+					}
+					if (canvas.grid[headx][heady] === FOOD) {
+						score.score++;
+						canvas.setFood();
+					}
+					else {
+						snake.methods.remove_tail();
+					}
+					snake.methods.insert_new_head(headx, heady);
+				},
+			}
+		});
+
+		var score = new Vue({
+			el: '#score',
+
+			delimiters: ['[[', ']]'],
+
+			data: {
+				score: 0
+			},
+
+			watch: {
+				score: function() {
+					if (this.score > 80)
+						this.change_speed(40);
+					else if (this.score > 50)
+						this.change_speed(60);
+					else if (this.score > 25)
+						this.change_speed(80);
+				}
+			},
+
+			methods: {
+				change_speed: function(time) {
+					clearInterval(loopid);
+					SPEED = time;
+					loop();
+				},
+
+				restart: function(time) {
+					clearInterval(loopid);
+					SPEED = time;
+					GAME_OVER = false;
+					main();
+				},
+			}
+		});
+
+
+
+		function loop() {
+			loopid = setInterval(function() {
+					canvas.update();
+					canvas.draw();
+					if (GAME_OVER) {
+						clearInterval(loopid);
+						return;
+					}
+				}, SPEED);
+		}
+
+		function main() {
+			ctx = canvas.getContext();
+			document.addEventListener("keydown", function(evt) {
+				if (POSSIBLE_KEYS.includes(evt.keyCode)) {
+					if (Math.abs(evt.keyCode - snake.direction) != 2 && (evt.keyCode != snake.direction)) {
+						snake.direction = evt.keyCode;
+					}
+				}
+			});
+			snake.methods.init();
+			canvas.init();
+			canvas.draw();
+			canvas.setFood();
+			loop();
+		}
+
+		main();
+	</script>
+</body>
+</html>
